@@ -1,0 +1,54 @@
+# ===========================================
+# ARGO CD APPLICATION - DEV ENVIRONMENT
+# ===========================================
+# This manifest tells Argo CD to deploy the dev environment
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gitops-demo-dev
+  namespace: argocd
+  labels:
+    app: gitops-demo
+    environment: dev
+  # Finalizer ensures proper cleanup
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # Project reference (default or custom)
+  project: default
+
+  # Source: Where to get the manifests
+  source:
+    repoURL: https://github.com/YOUR_ORG/gitops-demo.git
+    targetRevision: develop  # Branch for dev
+    path: k8s/overlays/dev   # Kustomize overlay path
+
+  # Destination: Where to deploy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gitops-demo-dev
+
+  # Sync Policy: How to sync
+  syncPolicy:
+    automated:
+      prune: true       # Delete resources not in Git
+      selfHeal: true    # Revert manual changes
+      allowEmpty: false # Don't sync if manifests are empty
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Ignore differences for certain fields
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # Allow HPA to change replicas

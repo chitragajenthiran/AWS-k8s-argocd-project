@@ -1,0 +1,12 @@
+# ===========================================
+# KUBERNETES CONFIGMAP
+# ===========================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitops-demo-config
+  labels:
+    app: gitops-demo
+data:
+  LOG_LEVEL: "INFO"
+  ENABLE_METRICS: "true"

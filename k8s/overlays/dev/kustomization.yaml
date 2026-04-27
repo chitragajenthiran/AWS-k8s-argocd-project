@@ -1,0 +1,48 @@
+# ===========================================
+# KUSTOMIZATION - DEV OVERLAY
+# ===========================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: gitops-demo-dev
+
+resources:
+  - ../../base
+  - namespace.yaml
+
+images:
+  - name: gitops-demo
+    newName: ghcr.io/your-org/gitops-demo
+    newTag: dev-latest
+
+replicas:
+  - name: gitops-demo
+    count: 1
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "50m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "64Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "200m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "128Mi"
+    target:
+      kind: Deployment
+      name: gitops-demo
+
+configMapGenerator:
+  - name: gitops-demo-config
+    behavior: merge
+    literals:
+      - LOG_LEVEL=DEBUG
+      - ENABLE_METRICS=true
+
+commonLabels:
+  environment: dev

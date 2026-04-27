@@ -1,0 +1,10 @@
+# ===========================================
+# PROD NAMESPACE
+# ===========================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gitops-demo-prod
+  labels:
+    environment: prod
+    app.kubernetes.io/managed-by: argocd

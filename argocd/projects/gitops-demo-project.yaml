@@ -1,0 +1,65 @@
+# ===========================================
+# ARGO CD PROJECT
+# ===========================================
+# Custom AppProject for better isolation and RBAC
+
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: gitops-demo
+  namespace: argocd
+  labels:
+    app.kubernetes.io/managed-by: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: GitOps Demo Project
+
+  # Allowed source repositories
+  sourceRepos:
+    - https://github.com/YOUR_ORG/gitops-demo.git
+    - https://github.com/YOUR_ORG/*  # Allow all repos in org
+
+  # Allowed destinations
+  destinations:
+    - namespace: gitops-demo-dev
+      server: https://kubernetes.default.svc
+    - namespace: gitops-demo-prod
+      server: https://kubernetes.default.svc
+
+  # Allowed cluster resources
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+
+  # Allowed namespace resources
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  # Denied namespace resources (security)
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: Secret  # Prevent direct secret creation; use SealedSecrets
+
+  # Roles for RBAC
+  roles:
+    - name: developer
+      description: Developer role with read-only access
+      policies:
+        - p, proj:gitops-demo:developer, applications, get, gitops-demo/*, allow
+        - p, proj:gitops-demo:developer, applications, sync, gitops-demo/gitops-demo-dev, allow
+      groups:
+        - developers
+
+    - name: admin
+      description: Admin role with full access
+      policies:
+        - p, proj:gitops-demo:admin, applications, *, gitops-demo/*, allow
+        - p, proj:gitops-demo:admin, repositories, *, gitops-demo/*, allow
+      groups:
+        - platform-team

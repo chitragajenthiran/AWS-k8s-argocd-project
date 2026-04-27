@@ -1,0 +1,38 @@
+# Docker
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose*.yml
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv
+env/
+venv/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Tests
+tests/
+*.test.py
+coverage/
+.coverage
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Kubernetes manifests (not needed in image)
+k8s/

@@ -1,0 +1,33 @@
+# ===========================================
+# ARGO CD APP OF APPS PATTERN
+# ===========================================
+# Bootstrap application that manages other applications
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gitops-demo-apps
+  namespace: argocd
+  labels:
+    app: gitops-demo
+    component: app-of-apps
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/YOUR_ORG/gitops-demo.git
+    targetRevision: main
+    path: argocd/applications  # Directory containing app manifests
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

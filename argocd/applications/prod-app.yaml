@@ -1,0 +1,55 @@
+# ===========================================
+# ARGO CD APPLICATION - PROD ENVIRONMENT
+# ===========================================
+# This manifest tells Argo CD to deploy the prod environment
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gitops-demo-prod
+  namespace: argocd
+  labels:
+    app: gitops-demo
+    environment: prod
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  # Source: Where to get the manifests
+  source:
+    repoURL: https://github.com/YOUR_ORG/gitops-demo.git
+    targetRevision: main     # Main branch for prod
+    path: k8s/overlays/prod  # Kustomize overlay path
+
+  # Destination: Where to deploy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gitops-demo-prod
+
+  # Sync Policy: Manual for production (safer)
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true  # Only apply out-of-sync resources
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+
+  # Health checks
+  revisionHistoryLimit: 10
+
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
