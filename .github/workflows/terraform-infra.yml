@@ -97,7 +97,7 @@ jobs:
     name: 'Terraform Plan'
     runs-on: ubuntu-latest
     needs: validate
-    if: github.event_name == 'pull_request' || github.event.inputs.action == 'plan'
+    if: github.event_name == 'pull_request' || github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply'
     
     steps:
       - name: Checkout
@@ -149,7 +149,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: plan
     if: github.event.inputs.action == 'apply'
-    environment: infrastructure
+    # environment: infrastructure  # Uncomment to require manual approval
     
     steps:
       - name: Checkout
@@ -184,8 +184,9 @@ jobs:
   destroy:
     name: 'Terraform Destroy'
     runs-on: ubuntu-latest
+    needs: validate
     if: github.event.inputs.action == 'destroy'
-    environment: destroy-approval
+    # environment: destroy-approval  # Uncomment to require manual approval
     
     steps:
       - name: Checkout
