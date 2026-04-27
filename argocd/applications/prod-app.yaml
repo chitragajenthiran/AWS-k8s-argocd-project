@@ -18,7 +18,7 @@ spec:
 
   # Source: Where to get the manifests
   source:
-    repoURL: https://github.com/YOUR_ORG/gitops-demo.git
+    repoURL: https://github.com/chitragajenthiran/AWS-k8s-argocd-project.git
     targetRevision: main     # Main branch for prod
     path: k8s/overlays/prod  # Kustomize overlay path
 

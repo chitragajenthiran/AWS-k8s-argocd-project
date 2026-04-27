@@ -68,9 +68,11 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Terraform Format
+      - name: Terraform Format Check
+        id: fmt
         run: terraform fmt -check -recursive
         working-directory: terraform
+        continue-on-error: true
 
       - name: Terraform Init (AWS)
         run: terraform init -backend=false

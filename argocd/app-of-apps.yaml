@@ -17,7 +17,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/YOUR_ORG/gitops-demo.git
+    repoURL: https://github.com/chitragajenthiran/AWS-k8s-argocd-project.git
     targetRevision: main
     path: argocd/applications  # Directory containing app manifests
 
