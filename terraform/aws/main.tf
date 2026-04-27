@@ -79,7 +79,7 @@ data "aws_caller_identity" "current" {}
 # ===========================================
 locals {
   cluster_name = "${var.project_name}-${var.environment}-eks"
-  
+
   common_tags = {
     Project     = var.project_name
     Environment = var.environment
@@ -108,12 +108,12 @@ module "vpc" {
 
   # Tags required for EKS
   public_subnet_tags = {
-    "kubernetes.io/role/elb"                    = 1
+    "kubernetes.io/role/elb"                      = 1
     "kubernetes.io/cluster/${local.cluster_name}" = "owned"
   }
 
   private_subnet_tags = {
-    "kubernetes.io/role/internal-elb"           = 1
+    "kubernetes.io/role/internal-elb"             = 1
     "kubernetes.io/cluster/${local.cluster_name}" = "owned"
   }
 
@@ -141,7 +141,7 @@ module "eks" {
     default = {
       name           = "default-node-group"
       instance_types = var.node_instance_types
-      
+
       min_size     = var.node_min_size
       max_size     = var.node_max_size
       desired_size = var.node_desired_size
@@ -176,7 +176,7 @@ module "eks" {
 resource "kubernetes_namespace" "argocd" {
   metadata {
     name = "argocd"
-    
+
     labels = {
       "app.kubernetes.io/managed-by" = "Terraform"
     }
@@ -198,14 +198,14 @@ resource "helm_release" "argocd" {
   values = [
     yamlencode({
       server = {
-        extraArgs = ["--insecure"]  # Remove for production with TLS
+        extraArgs = ["--insecure"] # Remove for production with TLS
         service = {
           type = "LoadBalancer"
         }
       }
       configs = {
         params = {
-          "server.insecure" = true  # Remove for production
+          "server.insecure" = true # Remove for production
         }
       }
     })
@@ -223,7 +223,7 @@ resource "helm_release" "nginx_ingress" {
   chart      = "ingress-nginx"
   version    = "4.8.3"
   namespace  = "ingress-nginx"
-  
+
   create_namespace = true
 
   set {
