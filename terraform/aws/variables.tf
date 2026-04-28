@@ -51,6 +51,18 @@ variable "kubernetes_version" {
   default     = "1.28"
 }
 
+variable "allow_cluster_destroy" {
+  description = "Set to true to allow cluster destruction. Default false for safety."
+  type        = bool
+  default     = false
+}
+
+variable "force_cluster_update" {
+  description = "Force update even if cluster version matches"
+  type        = bool
+  default     = false
+}
+
 variable "node_instance_types" {
   description = "EC2 instance types for worker nodes"
   type        = list(string)

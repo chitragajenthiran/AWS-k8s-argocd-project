@@ -112,11 +112,75 @@ jobs:
         run: terraform init
         working-directory: ${{ env.TF_WORKING_DIR }}
 
+      - name: Check Existing Cluster
+        id: check-cluster
+        run: |
+          echo "🔍 Checking for existing EKS cluster..."
+          # Run a refresh to get current state
+          terraform refresh -target=data.aws_eks_clusters.existing 2>/dev/null || true
+          
+          # Get cluster validation info
+          VALIDATION=$(terraform output -json cluster_validation 2>/dev/null || echo '{}')
+          echo "Cluster Validation: $VALIDATION"
+          
+          CLUSTER_EXISTS=$(echo $VALIDATION | jq -r '.cluster_exists // false')
+          ACTION=$(echo $VALIDATION | jq -r '.action // "CREATE"')
+          EXISTING_VERSION=$(echo $VALIDATION | jq -r '.existing_version // "N/A"')
+          TARGET_VERSION=$(echo $VALIDATION | jq -r '.target_version // "N/A"')
+          EFFECTIVE_VERSION=$(echo $VALIDATION | jq -r '.effective_version // "N/A"')
+          
+          echo "cluster_exists=$CLUSTER_EXISTS" >> $GITHUB_OUTPUT
+          echo "action=$ACTION" >> $GITHUB_OUTPUT
+          echo "existing_version=$EXISTING_VERSION" >> $GITHUB_OUTPUT
+          echo "target_version=$TARGET_VERSION" >> $GITHUB_OUTPUT
+          echo "effective_version=$EFFECTIVE_VERSION" >> $GITHUB_OUTPUT
+          
+          case "$ACTION" in
+            "CREATE")
+              echo "🆕 Cluster does not exist - will CREATE new cluster with version $TARGET_VERSION"
+              ;;
+            "UPGRADE")
+              echo "⬆️ Cluster exists - will UPGRADE from $EXISTING_VERSION to $TARGET_VERSION"
+              ;;
+            "SKIP")
+              echo "⏭️ Cluster exists with version $EXISTING_VERSION - target version $TARGET_VERSION is same or lower"
+              echo "   Only missing resources will be applied, cluster version unchanged"
+              ;;
+          esac
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        continue-on-error: true
+
       - name: Terraform Plan
         id: plan
         run: terraform plan -no-color -out=tfplan
         working-directory: ${{ env.TF_WORKING_DIR }}
         continue-on-error: true
+
+      - name: Plan Summary
+        run: |
+          echo "## 📋 Terraform Plan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Cluster Exists | ${{ steps.check-cluster.outputs.cluster_exists }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Existing Version | ${{ steps.check-cluster.outputs.existing_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Target Version | ${{ steps.check-cluster.outputs.target_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Effective Version | ${{ steps.check-cluster.outputs.effective_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Action | **${{ steps.check-cluster.outputs.action }}** |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          ACTION="${{ steps.check-cluster.outputs.action }}"
+          case "$ACTION" in
+            "CREATE")
+              echo "🆕 **New cluster will be created with version ${{ steps.check-cluster.outputs.target_version }}**" >> $GITHUB_STEP_SUMMARY
+              ;;
+            "UPGRADE")
+              echo "⬆️ **Cluster will be upgraded from ${{ steps.check-cluster.outputs.existing_version }} to ${{ steps.check-cluster.outputs.target_version }}**" >> $GITHUB_STEP_SUMMARY
+              ;;
+            "SKIP")
+              echo "⏭️ **Version unchanged (target ${{ steps.check-cluster.outputs.target_version }} <= existing ${{ steps.check-cluster.outputs.existing_version }}) - Only missing resources will be applied**" >> $GITHUB_STEP_SUMMARY
+              ;;
+          esac
 
       - name: Upload Plan
         uses: actions/upload-artifact@v4
@@ -171,7 +235,14 @@ jobs:
           path: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+        run: |
+          echo "🚀 Applying Terraform changes..."
+          terraform apply -auto-approve tfplan
+          
+          # Show what was done
+          echo "## ✅ Apply Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          terraform output -json cluster_validation >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
         working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Output Results
@@ -201,6 +272,29 @@ jobs:
         run: terraform init
         working-directory: ${{ env.TF_WORKING_DIR }}
 
+      - name: Check Destroy Protection
+        run: |
+          echo "⚠️ DESTROY OPERATION REQUESTED"
+          echo ""
+          echo "Checking allow_cluster_destroy variable..."
+          
+          # Check current variable setting
+          ALLOW_DESTROY=$(terraform output -json 2>/dev/null | jq -r '.allow_cluster_destroy.value // false' || echo "false")
+          
+          if [ "$ALLOW_DESTROY" != "true" ]; then
+            echo "❌ Cluster destruction is PROTECTED"
+            echo ""
+            echo "To destroy the cluster, set allow_cluster_destroy = true in terraform.tfvars"
+            echo "This is a safety measure to prevent accidental deletion."
+            exit 1
+          fi
+          
+          echo "✅ Destroy protection is disabled - proceeding with destruction"
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
       - name: Terraform Destroy
-        run: terraform destroy -auto-approve
+        run: |
+          echo "🔥 Destroying infrastructure..."
+          terraform destroy -auto-approve
+          echo "## ⚠️ Infrastructure Destroyed" >> $GITHUB_STEP_SUMMARY
         working-directory: ${{ env.TF_WORKING_DIR }}

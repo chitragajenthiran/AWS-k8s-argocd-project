@@ -3,15 +3,17 @@
 # ===========================================
 # A simple Flask API for demonstrating GitOps deployment
 
-from flask import Flask, jsonify
 import os
 import socket
+
+from flask import Flask, jsonify
 
 app = Flask(__name__)
 
 # Configuration from environment variables
 APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
 
 @app.route("/")
 def home():
@@ -22,6 +24,7 @@ def home():
         "environment": ENVIRONMENT
     })
 
+
 @app.route("/health")
 def health():
     """Health check endpoint for Kubernetes probes"""
@@ -30,6 +33,7 @@ def health():
         "hostname": socket.gethostname()
     })
 
+
 @app.route("/ready")
 def ready():
     """Readiness check endpoint"""
@@ -37,6 +41,7 @@ def ready():
         "status": "ready",
         "version": APP_VERSION
     })
+
 
 @app.route("/api/info")
 def info():
@@ -48,6 +53,7 @@ def info():
         "hostname": socket.gethostname(),
         "python_version": os.popen("python --version").read().strip()
     })
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))

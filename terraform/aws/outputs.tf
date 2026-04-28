@@ -51,3 +51,8 @@ output "public_subnets" {
   description = "Public subnet IDs"
   value       = module.vpc.public_subnets
 }
+
+output "allow_cluster_destroy" {
+  description = "Whether cluster destruction is allowed"
+  value       = var.allow_cluster_destroy
+}

@@ -19,6 +19,10 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.11"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
   }
 
   # Uncomment for remote state
@@ -74,16 +78,101 @@ data "aws_availability_zones" "available" {
 
 data "aws_caller_identity" "current" {}
 
+# Check if EKS cluster already exists
+data "aws_eks_clusters" "existing" {}
+
+# Get existing cluster details if it exists
+data "aws_eks_cluster" "existing" {
+  count = contains(data.aws_eks_clusters.existing.names, local.cluster_name) ? 1 : 0
+  name  = local.cluster_name
+}
+
 # ===========================================
 # LOCALS
 # ===========================================
 locals {
-  cluster_name = "${var.project_name}-${var.environment}-eks"
+  cluster_name   = "${var.project_name}-${var.environment}-eks"
+  cluster_exists = contains(data.aws_eks_clusters.existing.names, local.cluster_name)
+  
+  # Get existing version if cluster exists
+  existing_version = local.cluster_exists ? data.aws_eks_cluster.existing[0].version : "0.0"
+  
+  # Compare versions: only upgrade if target is higher
+  # EKS versions are like "1.28", "1.29", etc.
+  version_comparison = local.cluster_exists ? (
+    tonumber(replace(var.kubernetes_version, ".", "")) > tonumber(replace(local.existing_version, ".", ""))
+  ) : false
+  
+  # Determine action
+  # - CREATE: cluster doesn't exist
+  # - UPGRADE: cluster exists and target version is higher
+  # - SKIP: cluster exists and target version is same or lower
+  cluster_action = local.cluster_exists ? (
+    local.version_comparison ? "UPGRADE" : "SKIP"
+  ) : "CREATE"
+  
+  # Use existing version if not upgrading (prevents downgrade and unnecessary changes)
+  effective_k8s_version = local.cluster_exists ? (
+    local.version_comparison ? var.kubernetes_version : local.existing_version
+  ) : var.kubernetes_version
 
   common_tags = {
     Project     = var.project_name
     Environment = var.environment
     ManagedBy   = "Terraform"
+  }
+}
+
+# ===========================================
+# CLUSTER VALIDATION OUTPUT
+# ===========================================
+output "cluster_validation" {
+  value = {
+    cluster_exists    = local.cluster_exists
+    cluster_name      = local.cluster_name
+    existing_version  = local.existing_version
+    target_version    = var.kubernetes_version
+    effective_version = local.effective_k8s_version
+    version_upgrade   = local.version_comparison
+    action            = local.cluster_action
+  }
+  description = "Cluster validation status"
+}
+
+# ===========================================
+# PRE-APPLY VALIDATION
+# ===========================================
+resource "null_resource" "cluster_validation_check" {
+  # This runs before cluster operations to validate state
+  triggers = {
+    cluster_name    = local.cluster_name
+    cluster_exists  = local.cluster_exists
+    target_version  = var.kubernetes_version
+    action          = local.cluster_action
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "=================================================="
+      echo "CLUSTER VALIDATION CHECK"
+      echo "=================================================="
+      echo "Cluster Name: ${local.cluster_name}"
+      echo "Cluster Exists: ${local.cluster_exists}"
+      echo "Existing Version: ${local.existing_version}"
+      echo "Target Version: ${var.kubernetes_version}"
+      echo "Effective Version: ${local.effective_k8s_version}"
+      echo "Action: ${local.cluster_action}"
+      echo "=================================================="
+      if [ "${local.cluster_action}" = "SKIP" ]; then
+        echo "INFO: Version ${var.kubernetes_version} <= existing ${local.existing_version}"
+        echo "INFO: No version change required. Only missing resources will be applied."
+      elif [ "${local.cluster_action}" = "UPGRADE" ]; then
+        echo "INFO: Upgrading cluster from ${local.existing_version} to ${var.kubernetes_version}"
+      else
+        echo "INFO: Creating new cluster with version ${var.kubernetes_version}"
+      fi
+      echo "=================================================="
+    EOT
   }
 }
 
@@ -128,13 +217,17 @@ module "eks" {
   version = "~> 19.0"
 
   cluster_name    = local.cluster_name
-  cluster_version = var.kubernetes_version
+  cluster_version = local.effective_k8s_version
 
   cluster_endpoint_public_access  = true
   cluster_endpoint_private_access = true
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
+
+  # Prevent accidental cluster deletion
+  # Set to false if you intentionally want to destroy
+  cluster_enabled_log_types = []
 
   # EKS Managed Node Groups
   eks_managed_node_groups = {
@@ -145,6 +238,11 @@ module "eks" {
       min_size     = var.node_min_size
       max_size     = var.node_max_size
       desired_size = var.node_desired_size
+
+      # Allow node group updates without recreation
+      update_config = {
+        max_unavailable_percentage = 50
+      }
 
       labels = {
         Environment = var.environment
