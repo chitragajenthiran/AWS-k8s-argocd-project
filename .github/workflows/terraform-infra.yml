@@ -156,14 +156,6 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         continue-on-error: true
 
-      - name: Upload .terraform and state
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-state
-          path: |
-            ${{ env.TF_WORKING_DIR }}/.terraform
-            ${{ env.TF_WORKING_DIR }}/terraform.tfstate
-
       - name: Plan Summary
         run: |
           echo "## 📋 Terraform Plan Summary" >> $GITHUB_STEP_SUMMARY
@@ -240,12 +232,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: terraform-plan
-          path: ${{ env.TF_WORKING_DIR }}
-
-      - name: Download .terraform and state
-        uses: actions/download-artifact@v4
-        with:
-          name: terraform-state
           path: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform Apply
