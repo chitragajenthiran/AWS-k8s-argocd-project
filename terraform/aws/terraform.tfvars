@@ -3,7 +3,7 @@
 # ===========================================
 
 aws_region   = "us-east-1"
-project_name = "gitops-demo"
+project_name = "gitops-demo1"
 environment  = "dev"
 
 # VPC
