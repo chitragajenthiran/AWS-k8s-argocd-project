@@ -7,50 +7,50 @@ kind: Kustomization
 namespace: gitops-demo-prod
 
 resources:
-  - ../../base
-  - namespace.yaml
-  - pdb.yaml
+- ../../base
+- namespace.yaml
+- pdb.yaml
 
 images:
-  - name: gitops-demo
-    newName: ghcr.io/your-org/gitops-demo
-    newTag: v1.0.0
+- name: gitops-demo
+  newName: ghcr.io/chitragajenthiran/AWS-k8s-argocd-project/gitops-demo
+  newTag: 7b12993fe4bcd8417eee0f401103725d19257bf5
 
 replicas:
-  - name: gitops-demo
-    count: 3
+- count: 3
+  name: gitops-demo
 
 patches:
-  - patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/cpu
-        value: "200m"
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/memory
-        value: "256Mi"
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/cpu
-        value: "1000m"
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/memory
-        value: "512Mi"
-    target:
-      kind: Deployment
-      name: gitops-demo
-  - patch: |-
-      - op: replace
-        path: /spec/rules/0/host
-        value: gitops-demo.prod.example.com
-    target:
-      kind: Ingress
-      name: gitops-demo
+- patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: "200m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "256Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "1000m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "512Mi"
+  target:
+    kind: Deployment
+    name: gitops-demo
+- patch: |-
+    - op: replace
+      path: /spec/rules/0/host
+      value: gitops-demo.prod.example.com
+  target:
+    kind: Ingress
+    name: gitops-demo
 
 configMapGenerator:
-  - name: gitops-demo-config
-    behavior: merge
-    literals:
-      - LOG_LEVEL=INFO
-      - ENABLE_METRICS=true
+- behavior: merge
+  literals:
+  - LOG_LEVEL=INFO
+  - ENABLE_METRICS=true
+  name: gitops-demo-config
 
 commonLabels:
   environment: prod
